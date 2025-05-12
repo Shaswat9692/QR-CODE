@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Generator</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-database-compat.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-4">
+        <!-- Header -->
+        <header class="text-center my-8">
+            <h1 class="text-3xl font-bold text-blue-700">Certificate Generator</h1>
+            <p class="text-gray-600 mt-2">Register and generate your certificate with verification QR code</p>
+        </header>
+
+        <!-- Registration Form -->
+        <div id="registration-form" class="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto mb-8">
+            <h2 class="text-xl font-semibold mb-4">Student Registration</h2>
+            <form id="signup-form" class="space-y-4">
+                <div>
+                    <label for="name" class="block text-gray-700 mb-1">Full Name</label>
+                    <input type="text" id="name" name="name" required class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="email" class="block text-gray-700 mb-1">Email</label>
+                    <input type="email" id="email" name="email" required class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="phone" class="block text-gray-700 mb-1">Phone Number</label>
+                    <input type="tel" id="phone" name="phone" required class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="domain" class="block text-gray-700 mb-1">Domain</label>
+                    <select id="domain" name="domain" required class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select Domain</option>
+                        <option value="Artificial Intelligence">Artificial Intelligence</option>
+                        <option value="Web Development">Web Development</option>
+                        <option value="Mobile Development">Mobile Development</option>
+                        <option value="Data Science">Data Science</option>
+                        <option value="Cyber Security">Cyber Security</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="password" class="block text-gray-700 mb-1">Password</label>
+                    <input type="password" id="password" name="password" required class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300">Register & Generate Certificate</button>
+            </form>
+        </div>
+
+        <!-- Certificate Preview -->
+        <div id="certificate-container" class="hidden bg-white p-6 rounded-lg shadow-md max-w-3xl mx-auto my-8">
+            <div id="certificate" class="border-8 border-blue-200 p-8 relative">
+                <div class="absolute top-0 left-0 w-full h-full bg-contain bg-no-repeat bg-center opacity-5" style="background-image: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cGF0aCBmaWxsPSIjMDA3MWJjIiBkPSJNNTAgMEMyMi40IDAgMCAyMi40IDAgNTBzMjIuNCA1MCA1MCA1MCA1MC0yMi40IDUwLTUwUzc3LjYgMCA1MCAwem0wIDkwQzI4LjEgOTAgMTAgNzEuOSAxMCA1MFMyOC4xIDEwIDUwIDEwczQwIDE4LjEgNDAgNDBTNzEuOSA5MCA1MCA5MHoiLz48cGF0aCBmaWxsPSIjMDA3MWJjIiBkPSJNNTAgMzBjLTExIDAtMjAgOS0yMCAyMHM5IDIwIDIwIDIwIDIwLTkgMjAtMjAtOS0yMC0yMC0yMHoiLz48L3N2Zz4=')"></div>
+                <div class="text-center mb-8">
+                    <h1 class="text-3xl font-bold text-blue-800">Certificate of Completion</h1>
+                    <p class="text-gray-500 mt-1">This certifies that</p>
+                    <h2 id="cert-name" class="text-2xl font-semibold mt-2"></h2>
+                    <p class="text-gray-600 mt-1">has successfully completed the course in</p>
+                    <h3 id="cert-domain" class="text-xl font-semibold mt-1 text-blue-600"></h3>
+                </div>
+                <div class="flex justify-between items-end mt-12">
+                    <div>
+                        <p class="text-gray-600" id="cert-date"></p>
+                        <div class="mt-8 border-t border-gray-300 pt-1 w-40">
+                            <p class="text-gray-600">Date</p>
+                        </div>
+                    </div>
+                    <div id="qrcode-container" class="w-32 h-32"></div>
+                    <div>
+                        <div class="mt-8 border-t border-gray-300 pt-1 w-40 text-right">
+                            <p class="text-gray-600">Director</p>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-center text-gray-500 text-sm mt-6">Scan the QR code to verify this certificate</p>
+            </div>
+            <div class="mt-6 text-center">
+                <button id="download-btn" class="bg-green-600 text-white py-2 px-6 rounded-md hover:bg-green-700 transition duration-300">Download Certificate</button>
+                <button id="new-registration" class="ml-4 bg-gray-600 text-white py-2 px-6 rounded-md hover:bg-gray-700 transition duration-300">New Registration</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            databaseURL: "https://qr-certificate-app-5656e-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Date formatting function
+        function formatDate(date) {
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(date).toLocaleDateString('en-US', options);
+        }
+
+        // Generate unique ID
+        function generateUID() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        // Handle form submission
+        document.getElementById('signup-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Get form values
+            const name = document.getElementById('name').value;
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone').value;
+            const domain = document.getElementById('domain').value;
+            const password = document.getElementById('password').value;
+            
+            // Generate unique ID for this student
+            const studentId = generateUID();
+            const currentDate = new Date();
+            
+            // Prepare student data
+            const studentData = {
+                name: name,
+                email: email,
+                phone: phone,
+                domain: domain,
+                password: password,
+                signupTime: currentDate.toISOString(),
+                certificateId: studentId
+            };
+            
+            // Save to Firebase
+            database.ref('students/' + studentId).set(studentData)
+                .then(() => {
+                    console.log("Student data saved successfully!");
+                    
+                    // Generate verification URL
+                    const verificationUrl = `${window.location.origin}/verify.html?id=${studentId}`;
+                    
+                    // Generate QR code
+                    const qrcodeContainer = document.getElementById('qrcode-container');
+                    qrcodeContainer.innerHTML = ''; // Clear previous QR code
+                    
+                    new QRCode(qrcodeContainer, {
+                        text: verificationUrl,
+                        width: 128,
+                        height: 128,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                    
+                    // Update certificate
+                    document.getElementById('cert-name').textContent = name;
+                    document.getElementById('cert-domain').textContent = domain;
+                    document.getElementById('cert-date').textContent = formatDate(currentDate);
+                    
+                    // Show certificate
+                    document.getElementById('registration-form').classList.add('hidden');
+                    document.getElementById('certificate-container').classList.remove('hidden');
+                })
+                .catch((error) => {
+                    console.error("Error saving student data: ", error);
+                    alert("Error generating certificate. Please try again.");
+                });
+        });
+
+        // Download certificate as PDF
+        document.getElementById('download-btn').addEventListener('click', function() {
+            const { jsPDF } = window.jspdf;
+            
+            // Get certificate element
+            const certificate = document.getElementById('certificate');
+            
+            // Use html2canvas to convert the certificate to an image
+            html2canvas(certificate, {
+                scale: 2, // Improve resolution
+                useCORS: true
+            }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                
+                // Create PDF
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: 'a4'
+                });
+                
+                const imgProps = pdf.getImageProperties(imgData);
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.save('certificate.pdf');
+            });
+        });
+
+        // New registration button
+        document.getElementById('new-registration').addEventListener('click', function() {
+            // Reset form
+            document.getElementById('signup-form').reset();
+            
+            // Hide certificate and show form
+            document.getElementById('certificate-container').classList.add('hidden');
+            document.getElementById('registration-form').classList.remove('hidden');
+        });
+    </script>
+</body>
+</html>

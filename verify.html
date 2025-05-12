@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Certificate Verification</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-database-compat.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-4">
+        <!-- Header -->
+        <header class="text-center my-8">
+            <h1 class="text-3xl font-bold text-blue-700">Certificate Verification</h1>
+            <p class="text-gray-600 mt-2">Verify the authenticity of certificates</p>
+        </header>
+
+        <!-- Loading State -->
+        <div id="loading" class="text-center py-12">
+            <svg class="animate-spin h-12 w-12 text-blue-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-4 text-gray-700">Loading certificate data...</p>
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="hidden text-center py-12">
+            <div class="bg-red-100 p-6 rounded-lg max-w-lg mx-auto">
+                <svg class="h-12 w-12 text-red-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <h2 class="text-xl font-semibold text-red-800 mt-4">Certificate Not Found</h2>
+                <p class="text-gray-700 mt-2">The certificate you're trying to verify doesn't exist or has been revoked.</p>
+                <a href="index.html" class="mt-4 inline-block bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-300">Return to Home</a>
+            </div>
+        </div>
+
+        <!-- Success State -->
+        <div id="certificate-data" class="hidden bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto">
+            <div class="border-l-4 border-green-500 pl-4 mb-6">
+                <h2 class="text-2xl font-bold text-green-700">Certificate Verified</h2>
+                <p class="text-gray-600">This certificate is authentic and valid.</p>
+            </div>
+            
+            <div class="space-y-6">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-700">Student Information</h3>
+                    <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-sm text-gray-500">Name</p>
+                            <p id="student-name" class="font-medium"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Domain</p>
+                            <p id="student-domain" class="font-medium"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Email</p>
+                            <p id="student-email" class="font-medium"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Phone</p>
+                            <p id="student-phone" class="font-medium"></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="border-t border-gray-200 pt-4">
+                    <h3 class="text-lg font-semibold text-gray-700">Certificate Details</h3>
+                    <div class="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <p class="text-sm text-gray-500">Registration Date</p>
+                            <p id="signup-time" class="font-medium"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-500">Certificate ID</p>
+                            <p id="certificate-id" class="font-medium"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8 text-center">
+                <a href="index.html" class="bg-blue-600 text-white py-2 px-6 rounded-md hover:bg-blue-700 transition duration-300">Return to Home</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            databaseURL: "https://qr-certificate-app-5656e-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        // Date formatting function
+        function formatDate(dateString) {
+            const options = { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            return new Date(dateString).toLocaleDateString('en-US', options);
+        }
+
+        // Get certificate ID from URL
+        function getQueryParam(param) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(param);
+        }
+
+        // When document is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            const certificateId = getQueryParam('id');
+            
+            if (!certificateId) {
+                // No certificate ID provided
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('error').classList.remove('hidden');
+                return;
+            }
+            
+            // Fetch certificate data from Firebase
+            database.ref('students/' + certificateId).once('value')
+                .then((snapshot) => {
+                    // Hide loading indicator
+                    document.getElementById('loading').classList.add('hidden');
+                    
+                    if (snapshot.exists()) {
+                        const studentData = snapshot.val();
+                        
+                        // Populate certificate data
+                        document.getElementById('student-name').textContent = studentData.name;
+                        document.getElementById('student-domain').textContent = studentData.domain;
+                        document.getElementById('student-email').textContent = studentData.email;
+                        document.getElementById('student-phone').textContent = studentData.phone;
+                        document.getElementById('signup-time').textContent = formatDate(studentData.signupTime);
+                        document.getElementById('certificate-id').textContent = studentData.certificateId;
+                        
+                        // Show certificate data
+                        document.getElementById('certificate-data').classList.remove('hidden');
+                    } else {
+                        // Certificate not found
+                        document.getElementById('error').classList.remove('hidden');
+                    }
+                })
+                .catch((error) => {
+                    console.error("Error fetching certificate data: ", error);
+                    document.getElementById('loading').classList.add('hidden');
+                    document.getElementById('error').classList.remove('hidden');
+                });
+        });
+    </script>
+</body>
+</html>
